@@ -6,6 +6,15 @@
 #include "md5.h"
 
 /*
+ * Rotates a 32-bit word left by n bits
+ */
+static uint32_t
+rotateLeft(uint32_t x, uint32_t n)
+{
+	return (x << n) | (x >> (32 - n));
+}
+
+/*
  * Constants defined by the MD5 algorithm
  */
 #define A 0x67452301
@@ -184,20 +193,23 @@ void md5Step(uint32_t *buffer, uint32_t *input){
 }
 
 /*
- * Functions that will return a pointer to the hash of the provided input
+ * Functions that will write the hash of the provided input to the given
+ * MD5Hash buffer.
  */
-uint8_t* md5String(char *input){
+void
+md5String(const char *input, MD5Hash* out)
+{
 	MD5Context ctx;
 	md5Init(&ctx);
 	md5Update(&ctx, (uint8_t *)input, strlen(input));
 	md5Finalize(&ctx);
 
-	uint8_t *result = malloc(16);
-	memcpy(result, ctx.digest, 16);
-	return result;
+	memcpy(out->buffer, ctx.digest, MD5_HASH_LEN);
 }
 
-uint8_t* md5File(FILE *file){
+void
+md5File(FILE *file, MD5Hash* out)
+{
 	char *input_buffer = malloc(1024);
 	size_t input_size = 0;
 
@@ -207,19 +219,9 @@ uint8_t* md5File(FILE *file){
 	while((input_size = fread(input_buffer, 1, 1024, file)) > 0){
 		md5Update(&ctx, (uint8_t *)input_buffer, input_size);
 	}
+	free(input_buffer);
 
 	md5Finalize(&ctx);
 
-	free(input_buffer);
-
-	uint8_t *result = malloc(16);
-	memcpy(result, ctx.digest, 16);
-	return result;
-}
-
-/*
- * Rotates a 32-bit word left by n bits
- */
-uint32_t rotateLeft(uint32_t x, uint32_t n){
-	return (x << n) | (x >> (32 - n));
+	memcpy(out->buffer, ctx.digest, MD5_HASH_LEN);
 }
