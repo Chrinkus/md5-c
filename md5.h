@@ -3,35 +3,31 @@
 #include <string.h>
 #include <stdlib.h>
 
-enum { MD5_HASH_LEN = 16, MD5_STRING_LEN = 32, };
+enum md5_magic {
+        MD5_DIGEST_LEN = 16,
+        MD5_STRING_LEN = 33,
+};
 
-typedef struct {
+struct md5_context {
 	uint64_t size;        // Size of input in bytes
 	uint32_t buffer[4];   // Current accumulation of hash
 	uint8_t input[64];    // Input to be used in the next step
 	uint8_t digest[16];   // Result of algorithm
-} MD5Context;
+};
 
-typedef struct {
-        uint8_t buffer[MD5_HASH_LEN];
-} MD5Hash;
-
-void md5Init(MD5Context *ctx);
-void md5Update(MD5Context *ctx, uint8_t *input, size_t input_len);
-void md5Finalize(MD5Context *ctx);
+void md5Init(struct md5_context *ctx);
+void md5Update(struct md5_context *ctx, uint8_t *input, size_t input_len);
+void md5Finalize(struct md5_context *ctx);
 void md5Step(uint32_t *buffer, uint32_t *input);
 
 void
-md5String(const char *input, MD5Hash* out);
+md5_from_string(const char *input, struct md5_context* ctx);
+
+void*
+md5_from_file(FILE *file, struct md5_context* ctx);
 
 void
-md5File(FILE *file, MD5Hash* out);
+md5_print(const struct md5_context* ctx);
 
-/*
-uint32_t F(uint32_t X, uint32_t Y, uint32_t Z);
-uint32_t G(uint32_t X, uint32_t Y, uint32_t Z);
-uint32_t H(uint32_t X, uint32_t Y, uint32_t Z);
-uint32_t I(uint32_t X, uint32_t Y, uint32_t Z);
-
-uint32_t rotateLeft(uint32_t x, uint32_t n);
-*/
+void
+md5_sprint(const struct md5_context* ctx, char* s);

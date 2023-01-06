@@ -6,15 +6,6 @@
 #include "md5.h"
 
 /*
- * Rotates a 32-bit word left by n bits
- */
-static uint32_t
-rotateLeft(uint32_t x, uint32_t n)
-{
-	return (x << n) | (x >> (32 - n));
-}
-
-/*
  * Constants defined by the MD5 algorithm
  */
 #define A 0x67452301
@@ -47,10 +38,38 @@ static uint32_t K[] = {0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
 /*
  * Bit-manipulation functions defined by the MD5 algorithm
  */
-#define F(X, Y, Z) ((X & Y) | (~X & Z))
-#define G(X, Y, Z) ((X & Z) | (Y & ~Z))
-#define H(X, Y, Z) (X ^ Y ^ Z)
-#define I(X, Y, Z) (Y ^ (X | ~Z))
+static uint32_t
+F(uint32_t X, uint32_t Y, uint32_t Z)
+{
+        return (X & Y) | (~X & Z);
+}
+
+static uint32_t
+G(uint32_t X, uint32_t Y, uint32_t Z)
+{
+        return (X & Z) | (Y & ~Z);
+}
+
+static uint32_t
+H(uint32_t X, uint32_t Y, uint32_t Z)
+{
+        return X ^ Y ^ Z;
+}
+
+static uint32_t
+I(uint32_t X, uint32_t Y, uint32_t Z)
+{
+        return Y ^ (X | ~Z);
+}
+
+/*
+ * Rotates a 32-bit word left by n bits
+ */
+static uint32_t
+rotateLeft(uint32_t x, uint32_t n)
+{
+	return (x << n) | (x >> (32 - n));
+}
 
 /*
  * Padding used to make the size (in bits) of the input congruent to 448 mod 512
@@ -67,7 +86,7 @@ static uint8_t PADDING[] = {0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 /*
  * Initialize a context
  */
-void md5Init(MD5Context *ctx){
+void md5Init(struct md5_context *ctx){
 	ctx->size = (uint64_t)0;
 
 	ctx->buffer[0] = (uint32_t)A;
@@ -82,7 +101,7 @@ void md5Init(MD5Context *ctx){
  * If the input fills out a block of 512 bits, apply the algorithm (md5Step)
  * and save the result in the buffer. Also updates the overall size.
  */
-void md5Update(MD5Context *ctx, uint8_t *input_buffer, size_t input_len){
+void md5Update(struct md5_context *ctx, uint8_t *input_buffer, size_t input_len){
 	uint32_t input[16];
 	unsigned int offset = ctx->size % 64;
 	ctx->size += (uint64_t)input_len;
@@ -115,7 +134,7 @@ void md5Update(MD5Context *ctx, uint8_t *input_buffer, size_t input_len){
  * Pad the current input to get to 448 bytes, append the size in bits to the very end,
  * and save the result of the final iteration into digest.
  */
-void md5Finalize(MD5Context *ctx){
+void md5Finalize(struct md5_context *ctx){
 	uint32_t input[16];
 	unsigned int offset = ctx->size % 64;
 	unsigned int padding_length = offset < 56 ? 56 - offset : (56 + 64) - offset;
@@ -197,31 +216,44 @@ void md5Step(uint32_t *buffer, uint32_t *input){
  * MD5Hash buffer.
  */
 void
-md5String(const char *input, MD5Hash* out)
+md5_from_string(const char *input, struct md5_context* ctx)
 {
-	MD5Context ctx;
-	md5Init(&ctx);
-	md5Update(&ctx, (uint8_t *)input, strlen(input));
-	md5Finalize(&ctx);
-
-	memcpy(out->buffer, ctx.digest, MD5_HASH_LEN);
+	md5Init(ctx);
+	md5Update(ctx, (uint8_t *)input, strlen(input));
+	md5Finalize(ctx);
 }
 
-void
-md5File(FILE *file, MD5Hash* out)
+void*
+md5_from_file(FILE *file, struct md5_context* ctx)
 {
 	char *input_buffer = malloc(1024);
+        if (!input_buffer)
+                return NULL;
+
 	size_t input_size = 0;
 
-	MD5Context ctx;
-	md5Init(&ctx);
+	md5Init(ctx);
 
 	while((input_size = fread(input_buffer, 1, 1024, file)) > 0){
-		md5Update(&ctx, (uint8_t *)input_buffer, input_size);
+		md5Update(ctx, (uint8_t *)input_buffer, input_size);
 	}
 	free(input_buffer);
 
-	md5Finalize(&ctx);
+	md5Finalize(ctx);
+        return ctx;
+}
 
-	memcpy(out->buffer, ctx.digest, MD5_HASH_LEN);
+void
+md5_print(const struct md5_context* ctx)
+{
+        for (int i = 0; i < MD5_DIGEST_LEN; ++i)
+                printf("%02x", ctx->digest[i]);
+        printf("\n");
+}
+
+void
+md5_sprint(const struct md5_context* ctx, char* s)
+{
+        for (int i = 0; i < MD5_DIGEST_LEN; ++i)
+                sprintf(&s[i * 2], "%02x", ctx->digest[i]);
 }
